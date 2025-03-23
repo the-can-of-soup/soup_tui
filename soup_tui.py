@@ -26,6 +26,7 @@ PROGRESS_BAR_LENGTH: int = 50
 _PRINTED_TEXT: str = ''
 _TITLE: str = 'Untitled'
 _DEBUG_MODE: bool = False
+_USE_FAST_CLEAR: bool = True
 _print: Callable = print
 _input: Callable = input
 
@@ -238,24 +239,42 @@ def format_number(n: int | float | complex, leading_zeroes: int = 1, decimal_pla
         formatted_number += '%'
     return formatted_number
 
+def use_fast_clear(enable: bool = True) -> None:
+    """
+    Enables or disables fast clear for clearing the screen.
+
+    With fast clear on, ANSI escape codes are used to quickly clear the screen.
+    With fast clear off, the appropriate system command is used to clear the screen.
+
+    :param enable: Whether to enable fast clear.
+    :type enable: bool
+    :rtype: None
+    """
+    global _USE_FAST_CLEAR
+
+    _USE_FAST_CLEAR = enable
+
 def clear_screen() -> None:
     """
-    Clears all text in the console by running the appropriate system command.
+    Clears all text in the terminal by running the appropriate system command.
 
     :rtype: None
     """
     global _PRINTED_TEXT
 
-    if platform.system() == 'Windows':
-        os.system('cls')
+    if _USE_FAST_CLEAR:
+        print_raw(ANSI.CLEAR_SCREEN)
     else:
-        os.system('clear')
+        if platform.system() == 'Windows':
+            os.system('cls')
+        else:
+            os.system('clear')
 
     _PRINTED_TEXT = ''
 
 def fast_clear() -> None:
     """
-    Clears all text in the console quickly using ANSI escape codes, but doesn't clear off-screen text.
+    Clears all text in the terminal quickly using ANSI escape codes, but doesn't clear off-screen text.
     Can cause incorrect behavior in other functions when called with off-screen text present.
 
     :rtype: None
@@ -277,6 +296,16 @@ def print_raw(text: str = '') -> None:
 
     _print(text, end='')
     _PRINTED_TEXT += text
+
+def input_raw(text: str = '') -> str:
+    """
+    Wrapped version of the input builtin.
+
+    :param text: The prompt to be shown to the user.
+    :type text: str
+    :return: The user's input.
+    :rtype: str
+    """
 
 # noinspection PyShadowingBuiltins
 def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatting: bool = True) -> None:
@@ -357,7 +386,7 @@ def debug_mode(enable_debug_mode: bool = True) -> None:
 
 def reprint(text: str | None = None) -> None:
     """
-    Clears all text in the console, and then prints the same text again.
+    Clears all text in the terminal, and then prints the same text again.
     Optionally providing a string will print that instead.
 
     :param text: The text to be printed after the screen clear, or None to print the old text again.
@@ -370,27 +399,11 @@ def reprint(text: str | None = None) -> None:
     clear_screen()
     print(text, '')
 
-def fast_reprint(text: str | None = None) -> None:
-    """
-    Same as ``reprint()``, but uses ``fast_clear()`` instead of ``clear_screen()``.
-    Quickly clears all text in the console, and then prints the same text again.
-    Optionally providing a string will print that instead.
-
-    :param text: The text to be printed after the screen clear, or None to print the old text again.
-    :type text: str | None
-    :rtype: None
-    """
-    if text is None:
-        text = _PRINTED_TEXT
-
-    fast_clear()
-    print(text, '')
-
 def get_current_text_on_screen() -> str:
     """
-    Returns all the text currently displayed in the console.
+    Returns all the text currently displayed in the terminal.
 
-    :return: The text displayed in the console.
+    :return: The text displayed in the terminal.
     :rtype: str
     """
     return _PRINTED_TEXT
@@ -473,7 +486,7 @@ def show_progress_bar(text: str, progress: float, finished: bool = False, start_
             estimated_remaining: float = (delta_time / progress) * (1 - progress)
             eta = f' (ETA {str(math.floor(estimated_remaining / 3600)).zfill(2)}:{str(math.floor(estimated_remaining / 60) % 60).zfill(2)}:{str(math.floor(estimated_remaining) % 60).zfill(2)})'
 
-    # print to console
+    # print to terminal
     end: str = '\r'
     if finished:
         end = '\n'
@@ -481,7 +494,7 @@ def show_progress_bar(text: str, progress: float, finished: bool = False, start_
 
 class ProgressBar:
     """
-    A progress bar to be displayed in the console.
+    A progress bar to be displayed in the terminal.
     """
     def __init__(self, text: str = 'Loading...', progress: float = 0, max_progress: float = 1, start_time: float | None = None) -> None:
         """

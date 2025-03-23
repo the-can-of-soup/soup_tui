@@ -11,6 +11,8 @@ A small module written by Soup for basic text UI and user input.
 # - function that prints a 2D array of strings formatted as a table
 # - function to format times (e.g. 124.7 becomes '00:02:04.70')
 
+# IMPORTS
+
 from typing import Callable
 import platform
 import random
@@ -18,17 +20,20 @@ import math
 import time
 import os
 
-BLOCK_CHARACTERS: list[str] = [' ', '░', '▒', '▓', '█']
-if platform.python_implementation() == 'PyPy': # normal block characters break in PyPy for some reason
-    BLOCK_CHARACTERS = [' ', '.', '-', '=', '#']
-PROGRESS_BAR_LENGTH: int = 50
+# GLOBALS
 
+_BLOCK_CHARACTERS: list[str] = [' ', '░', '▒', '▓', '█']
+if platform.python_implementation() == 'PyPy': # normal block characters break in PyPy for some reason
+    _BLOCK_CHARACTERS = [' ', '.', '-', '=', '#']
+_PROGRESS_BAR_LENGTH: int = 50
 _PRINTED_TEXT: str = ''
 _TITLE: str = 'Untitled'
 _DEBUG_MODE: bool = False
 _USE_FAST_CLEAR: bool = True
 _print: Callable = print
 _input: Callable = input
+
+# DEFINITIONS
 
 class ANSI:
     """
@@ -66,9 +71,9 @@ class ANSI:
     WHITE_BG: str = '\033[48;5;7m'   ; BRIGHT_WHITE_BG: str = '\033[48;5;15m'
 
     @staticmethod
-    def move_cursor(row: int = 1, column: int = 1) -> str:
+    def place_cursor(row: int = 1, column: int = 1) -> str:
         """
-        Returns the ANSI escape code that moves the cursor to the specified coordinates.
+        Returns the ANSI escape code that places the cursor at the specified coordinates.
 
         :param row: The row to move the cursor to; 1 is the top row.
         :type row: int
@@ -92,14 +97,14 @@ class ANSI:
         return f'\033[{column}G'
 
     @staticmethod
-    def move_cursor_relative(forward: int = 0, down: int = 0) -> str:
+    def move_cursor(down: int = 0, forward: int = 0) -> str:
         """
         Returns the ANSI escape code that moves the cursor relative to its current position.
 
-        :param forward: The number of spaces forward to move the cursor.
-        :type forward: int
         :param down: The number of spaces down to move the cursor.
         :type down: int
+        :param forward: The number of spaces forward to move the cursor.
+        :type forward: int
         :return: The ANSI escape code.
         :rtype: str
         """
@@ -118,11 +123,11 @@ class ANSI:
         return y_part + x_part
 
     @staticmethod
-    def change_line_relative(down: int = 1) -> str:
+    def move_cursor_vertical(down: int = 1) -> str:
         """
         Returns the ANSI escape code that moves the cursor down a certain number of lines.
 
-        :param down: The number of lines down to move.
+        :param down: The number of lines to move down.
         :type down: int
         :return: The ANSI escape code.
         :rtype: str
@@ -152,7 +157,7 @@ class ANSI:
         return f'\033[38;2;{args[0]};{args[1]};{args[2]}m'
 
     @staticmethod
-    def bg_color(*args: int) -> str:
+    def background_color(*args: int) -> str:
         """
         Returns the ANSI escape code that changes the text background color to a certain ID or RGB value.
         Color IDs defined here: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
@@ -168,6 +173,19 @@ class ANSI:
         if len(args) == 1:
             return f'\033[48;5;{args[0]}m'
         return f'\033[48;2;{args[0]};{args[1]};{args[2]}m'
+
+    # Aliases
+
+    set_pos: Callable = place_cursor
+    set_column: Callable = move_cursor_to_column
+    move: Callable = move_cursor
+    move_vertical: Callable = move_cursor_vertical
+    bg_color: Callable = background_color
+
+    ED: str = CLEAR_SCREEN
+    EL: str = CLEAR_LINE
+    CUP: Callable = place_cursor
+    CHA: Callable = move_cursor_to_column
 
 def format_number(n: int | float | complex, leading_zeroes: int = 1, decimal_places: int | None = None, separate_thousands: bool = True, percentage: bool = False, leave_slot_for_neg_sign: bool = False) -> str:
     """
@@ -283,17 +301,24 @@ def print_raw(text: str = '') -> None:
     global _PRINTED_TEXT
 
     _print(text, end='')
+    text = text.split(ANSI.CLEAR_SCREEN)[-1]
     _PRINTED_TEXT += text
 
-def input_raw(text: str = '') -> str:
+def input_raw(prompt: str = '') -> str:
     """
     Wrapped version of the input builtin.
 
-    :param text: The prompt to be shown to the user.
-    :type text: str
+    :param prompt: The prompt to be shown to the user.
+    :type prompt: str
     :return: The user's input.
     :rtype: str
     """
+    global _PRINTED_TEXT
+
+    user_input: str = _input(prompt)
+    _PRINTED_TEXT += prompt + user_input + '\n'
+
+    return user_input
 
 # noinspection PyShadowingBuiltins
 def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatting: bool = True) -> None:
@@ -315,7 +340,7 @@ def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatti
     if remove_old_formatting:
         format = ANSI.RESET + format
 
-    _print(format + text, end=end)
+    print_raw(format + text + end)
     _PRINTED_TEXT += format + text + end
 
 # noinspection PyShadowingBuiltins
@@ -358,7 +383,7 @@ def print_debug(text: str = '', end: str = '\n', format: str = ANSI.GRAY) -> Non
     :rtype: None
     """
     if _DEBUG_MODE:
-        print(text, end, format)
+        print('[DEBUG] ' + text, end, format)
 
 def debug_mode(enable_debug_mode: bool = True) -> None:
     """
@@ -387,9 +412,9 @@ def reprint(text: str | None = None) -> None:
     clear_screen()
     print(text, '')
 
-def get_current_text_on_screen() -> str:
+def get_displayed_text() -> str:
     """
-    Returns all the text currently displayed in the terminal.
+    Returns all text currently displayed in the terminal.
 
     :return: The text displayed in the terminal.
     :rtype: str
@@ -451,18 +476,18 @@ def show_progress_bar(text: str, progress: float, finished: bool = False, start_
     :type start_time: float | None
     :rtype: None
     """
-    num_block_characters: int = len(BLOCK_CHARACTERS)
+    num_block_characters: int = len(_BLOCK_CHARACTERS)
 
     # generate main progress bar
     progress_bar: str = ''
-    for i in range(PROGRESS_BAR_LENGTH):
-        block_progress: float = progress * PROGRESS_BAR_LENGTH - i
+    for i in range(_PROGRESS_BAR_LENGTH):
+        block_progress: float = progress * _PROGRESS_BAR_LENGTH - i
         if block_progress > 1:
             block_progress = 1
         elif block_progress < 0:
             block_progress = 0
 
-        block_character: str = BLOCK_CHARACTERS[math.floor(block_progress * (num_block_characters - 1))]
+        block_character: str = _BLOCK_CHARACTERS[math.floor(block_progress * (num_block_characters - 1))]
         progress_bar += block_character
 
     # generate ETA
@@ -548,13 +573,11 @@ def wait_for_enter(action: str = 'continue') -> None:
     """
     Waits for the user to press ENTER by showing the text "Press ENTER to {action}."
 
-    :param action: Should be a single word describing what pressing ENTER will do.
+    :param action: Should be a single word or phrase describing what pressing ENTER will do.
     :type action: str
     :rtype: None
     """
     input(f'Press ENTER to {action}.')
-
-press_enter_to_continue: Callable = wait_for_enter
 
 def press_enter_to_start() -> None:
     """
@@ -785,7 +808,17 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
         return user_input_number
     return None
 
-# main
+# ALIASES
+
+press_enter_to_continue: Callable = wait_for_enter
+clear: Callable = clear_screen
+cls: Callable = clear_screen
+praw: Callable = print_raw
+# noinspection SpellCheckingInspection
+iraw: Callable = input_raw
+
+# MAIN
+
 def _main():
     set_title('Soup TUI')
     print_title()

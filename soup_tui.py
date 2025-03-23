@@ -272,18 +272,6 @@ def clear_screen() -> None:
 
     _PRINTED_TEXT = ''
 
-def fast_clear() -> None:
-    """
-    Clears all text in the terminal quickly using ANSI escape codes, but doesn't clear off-screen text.
-    Can cause incorrect behavior in other functions when called with off-screen text present.
-
-    :rtype: None
-    """
-    global _PRINTED_TEXT
-
-    print_raw(ANSI.CLEAR_SCREEN)
-    _PRINTED_TEXT = ''
-
 def print_raw(text: str = '') -> None:
     """
     Wrapped version of the print builtin. Does not end with a newline by default.

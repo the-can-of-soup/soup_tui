@@ -7,7 +7,9 @@ A small module written by Soup for basic text UI and user input.
 # - add function that uses shutil.get_terminal_size()
 # - input types for list of numbers, list of text, and multiline text
 # - maybe input type for file path
+# - maybe input type for datetime
 # - function that prints a 2D array of strings formatted as a table
+# - function to format times (e.g. 124.7 becomes '00:02:04.70')
 
 from typing import Callable
 import platform
@@ -299,6 +301,7 @@ def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatti
     _print(format + text, end=end)
     _PRINTED_TEXT += format + text + end
 
+# noinspection PyShadowingBuiltins
 def input(prompt: str = ' > ', prompt_format: str = '', input_format: str = ANSI.CYAN, remove_old_formatting: bool = True) -> str:
     """
     Wrapped version of the input builtin.

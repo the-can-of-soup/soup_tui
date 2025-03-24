@@ -336,13 +336,10 @@ def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatti
     :type remove_old_formatting: bool
     :rtype: None
     """
-    global _PRINTED_TEXT
-
     if remove_old_formatting:
         format = ANSI.RESET + format
 
     print_raw(format + text + end)
-    _PRINTED_TEXT += format + text + end
 
 # noinspection PyShadowingBuiltins
 def input(prompt: str = ' > ', prompt_format: str = '', input_format: str = ANSI.CYAN, remove_old_formatting: bool = True) -> str:
@@ -412,7 +409,7 @@ def reprint(text: str | None = None) -> None:
         text = _PRINTED_TEXT
 
     clear_screen()
-    print(text, '')
+    print_raw(text)
 
 def get_displayed_text() -> str:
     """
@@ -693,7 +690,7 @@ def text_input(prompt: str | None = None, end: str = '\n', min_length: int | Non
                 print(f'   {reason}', format=ANSI.RED)
 
         # print the ending
-        print(end, '')
+        print_raw(end)
 
         # exit the loop conditionally
         if input_is_valid or not keep_asking_until_valid:
@@ -795,7 +792,7 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
                 print(f'   {reason}', format=ANSI.RED)
 
         # print the ending
-        print(end, '')
+        print_raw(end)
 
         # exit the loop conditionally
         if input_is_valid or not keep_asking_until_valid:

@@ -20,16 +20,17 @@ import math
 import time
 import os
 
-# GLOBALS
+# GLOBALS & CONSTANTS
 
 _BLOCK_CHARACTERS: list[str] = [' ', '░', '▒', '▓', '█']
 if platform.python_implementation() == 'PyPy': # normal block characters break in PyPy for some reason
     _BLOCK_CHARACTERS = [' ', '.', '-', '=', '#']
 _PROGRESS_BAR_LENGTH: int = 50
-_PRINTED_TEXT: str = ''
-_TITLE: str = 'Untitled'
-_DEBUG_MODE: bool = False
-_USE_FAST_CLEAR: bool = True
+
+_printed_text: str = ''
+_title: str = 'Untitled'
+_debug_mode: bool = False
+_use_fast_clear: bool = True
 _print: Callable = print
 _input: Callable = input
 
@@ -268,9 +269,18 @@ def use_fast_clear(enable: bool = True) -> None:
     :type enable: bool
     :rtype: None
     """
-    global _USE_FAST_CLEAR
+    global _use_fast_clear
 
-    _USE_FAST_CLEAR = enable
+    _use_fast_clear = enable
+
+def is_fast_clear_enabled() -> bool:
+    """
+    Checks whether fast clear is enabled.
+
+    :return: True if fast clear is enabled.
+    :rtype: bool
+    """
+    return _debug_mode
 
 def clear_screen() -> None:
     """
@@ -278,9 +288,9 @@ def clear_screen() -> None:
 
     :rtype: None
     """
-    global _PRINTED_TEXT
+    global _printed_text
 
-    if _USE_FAST_CLEAR:
+    if _use_fast_clear:
         print_raw(ANSI.CLEAR_SCREEN)
     else:
         if platform.system() == 'Windows':
@@ -288,7 +298,7 @@ def clear_screen() -> None:
         else:
             os.system('clear')
 
-    _PRINTED_TEXT = ''
+    _printed_text = ''
 
 def print_raw(text: str = '') -> None:
     """
@@ -298,11 +308,11 @@ def print_raw(text: str = '') -> None:
     :type text: str
     :rtype: None
     """
-    global _PRINTED_TEXT
+    global _printed_text
 
     _print(text, end='')
-    _PRINTED_TEXT += text
-    _PRINTED_TEXT = _PRINTED_TEXT.split(ANSI.CLEAR_SCREEN)[-1]
+    _printed_text += text
+    _printed_text = _printed_text.split(ANSI.CLEAR_SCREEN)[-1]
 
 def input_raw(prompt: str = '') -> str:
     """
@@ -313,11 +323,11 @@ def input_raw(prompt: str = '') -> str:
     :return: The user's input.
     :rtype: str
     """
-    global _PRINTED_TEXT
+    global _printed_text
 
     user_input: str = _input(prompt)
-    _PRINTED_TEXT += prompt + user_input + '\n'
-    _PRINTED_TEXT = _PRINTED_TEXT.split(ANSI.CLEAR_SCREEN)[-1]
+    _printed_text += prompt + user_input + '\n'
+    _printed_text = _printed_text.split(ANSI.CLEAR_SCREEN)[-1]
 
     return user_input
 
@@ -357,14 +367,14 @@ def input(prompt: str = ' > ', prompt_format: str = '', input_format: str = ANSI
     :return: The user's input.
     :rtype: str
     """
-    global  _PRINTED_TEXT
+    global  _printed_text
 
     if remove_old_formatting:
         prompt_format = ANSI.RESET + prompt_format
 
     user_input: str = _input(prompt_format + prompt + input_format)
-    _PRINTED_TEXT += prompt_format + prompt + input_format + user_input + '\n'
-    _PRINTED_TEXT = _PRINTED_TEXT.split(ANSI.CLEAR_SCREEN)[-1]
+    _printed_text += prompt_format + prompt + input_format + user_input + '\n'
+    _printed_text = _printed_text.split(ANSI.CLEAR_SCREEN)[-1]
 
     return user_input
 
@@ -381,7 +391,7 @@ def print_debug(text: str = '', end: str = '\n', format: str = ANSI.GRAY) -> Non
     :type format: str
     :rtype: None
     """
-    if _DEBUG_MODE:
+    if _debug_mode:
         print('[DEBUG] ' + text, end, format)
 
 def debug_mode(enable_debug_mode: bool = True) -> None:
@@ -392,9 +402,18 @@ def debug_mode(enable_debug_mode: bool = True) -> None:
     :type enable_debug_mode: bool
     :rtype: None
     """
-    global _DEBUG_MODE
+    global _debug_mode
 
-    _DEBUG_MODE = enable_debug_mode
+    _debug_mode = enable_debug_mode
+
+def is_debug_mode() -> bool:
+    """
+    Checks whether debug mode is enabled.
+
+    :return: True if debug mode is enabled.
+    :rtype: bool
+    """
+    return _debug_mode
 
 def reprint(text: str | None = None) -> None:
     """
@@ -406,7 +425,7 @@ def reprint(text: str | None = None) -> None:
     :rtype: None
     """
     if text is None:
-        text = _PRINTED_TEXT
+        text = _printed_text
 
     clear_screen()
     print_raw(text)
@@ -418,7 +437,7 @@ def get_displayed_text() -> str:
     :return: The text displayed in the terminal.
     :rtype: str
     """
-    return _PRINTED_TEXT
+    return _printed_text
 
 def get_title() -> str:
     """
@@ -427,7 +446,7 @@ def get_title() -> str:
     :return: The default title.
     :rtype: str
     """
-    return _TITLE
+    return _title
 
 def set_title(text: str) -> None:
     """
@@ -437,9 +456,9 @@ def set_title(text: str) -> None:
     :type text: str
     :rtype: None
     """
-    global _TITLE
+    global _title
 
-    _TITLE = text
+    _title = text
 
 def print_title(text: str | None = None, clear_screen_first: bool = True) -> None:
     """
@@ -452,7 +471,7 @@ def print_title(text: str | None = None, clear_screen_first: bool = True) -> Non
     :rtype: None
     """
     if text is None:
-        text = _TITLE
+        text = _title
 
     if clear_screen_first:
         clear_screen()
@@ -641,7 +660,7 @@ def text_input(prompt: str | None = None, end: str = '\n', min_length: int | Non
     :return: The text inputted by the user (or None if the user entered an invalid value).
     :rtype: str | None
     """
-    printed_text_before_input: str = _PRINTED_TEXT
+    printed_text_before_input: str = _printed_text
     while True:
 
         # ask user
@@ -730,7 +749,7 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
     :return: The text inputted by the user (or None if the user entered an invalid value).
     :rtype: str | None
     """
-    printed_text_before_input: str = _PRINTED_TEXT
+    printed_text_before_input: str = _printed_text
     while True:
 
         # ask user

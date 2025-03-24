@@ -301,8 +301,8 @@ def print_raw(text: str = '') -> None:
     global _PRINTED_TEXT
 
     _print(text, end='')
-    text = text.split(ANSI.CLEAR_SCREEN)[-1]
     _PRINTED_TEXT += text
+    _PRINTED_TEXT = _PRINTED_TEXT.split(ANSI.CLEAR_SCREEN)[-1]
 
 def input_raw(prompt: str = '') -> str:
     """
@@ -317,6 +317,7 @@ def input_raw(prompt: str = '') -> str:
 
     user_input: str = _input(prompt)
     _PRINTED_TEXT += prompt + user_input + '\n'
+    _PRINTED_TEXT = _PRINTED_TEXT.split(ANSI.CLEAR_SCREEN)[-1]
 
     return user_input
 
@@ -366,6 +367,7 @@ def input(prompt: str = ' > ', prompt_format: str = '', input_format: str = ANSI
 
     user_input: str = _input(prompt_format + prompt + input_format)
     _PRINTED_TEXT += prompt_format + prompt + input_format + user_input + '\n'
+    _PRINTED_TEXT = _PRINTED_TEXT.split(ANSI.CLEAR_SCREEN)[-1]
 
     return user_input
 

@@ -4,11 +4,10 @@ A small module written by Soup for basic text UI and user input.
 
 # TO-DO LIST
 # - add functions that use msvcrt.getch() and msvcrt.getche() (msvcrt is a built-in module but only for Windows)
-# - add function that uses shutil.get_terminal_size()
 # - input types for list of numbers, list of text, and multiline text
 # - maybe input type for file path
 # - maybe input type for datetime
-# - function that prints a 2D array of strings formatted as a table
+# - class for printing text formatted as a table
 # - function to format times (e.g. 124.7 becomes '00:02:04.70')
 
 # IMPORTS
@@ -16,6 +15,7 @@ A small module written by Soup for basic text UI and user input.
 from typing import Callable
 import platform
 import random
+import shutil
 import math
 import time
 import os
@@ -825,6 +825,16 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
     if input_is_valid:
         return user_input_number
     return None
+
+def get_terminal_size() -> tuple[int, int]:
+    """
+    Returns the current size of the terminal in characters.
+
+    :return: The size of the terminal in characters; a tuple of width and height.
+    :rtype: tuple[int, int]
+    """
+    # noinspection PyTypeChecker
+    return tuple(shutil.get_terminal_size())
 
 # ALIASES
 

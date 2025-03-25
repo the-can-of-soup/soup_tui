@@ -861,7 +861,7 @@ def _main():
     username: str = text_input('Please enter a username between 3 and 20 characters.', min_length=3, max_length=20, keep_asking_until_valid=True, character_whitelist=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_', '-'])
     print(f'Your username is: {username}')
     print()
-    print('This is a fake process. Nothing is actually loading.')
+    print('Test progress bar:')
     progress_bar: ProgressBar = ProgressBar(max_progress=21)
     for i in range(21):
         progress_bar.show(i)

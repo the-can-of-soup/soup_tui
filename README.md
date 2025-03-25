@@ -10,4 +10,6 @@ tui.print('Hello World!')
 # print('Hello World!')
 ```
 ## Documentation
-Documentation coming not very soon!
+Documentation coming soon, ±9 noventrigintillion years.
+
+*Side note: Yes, that is a real number. You can [look it up](https://en.wikipedia.org/wiki/Names_of_large_numbers#Extensions_of_the_standard_dictionary_numbers).*

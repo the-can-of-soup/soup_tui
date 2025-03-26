@@ -362,7 +362,10 @@ def begin_fragile_text() -> None:
 
     _fragile_mode = True
 
-# This function was removed because in the case of printing normal text after the end of a fragile block and calling solidify(), the fragile text is solidified after all normal next (not where it was before).
+# This function was removed because in the case of printing normal text after the end of a fragile block and
+# calling solidify(), the fragile text is solidified and placed after all normal next instead of where it was before,
+# and I'm too lazy to fix that.
+#
 # def end_fragile_text() -> None:
 #     """
 #     Marks the ending of a fragile text block, which will be deleted if the screen is refreshed using ``refresh()`` or ``update()``.

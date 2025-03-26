@@ -386,7 +386,7 @@ def solidify() -> None:
     _update_printed_text(_fragile_text)
     _fragile_text = ''
 
-def use_manual_refresh(enable: bool = True) -> None:
+def manual_refresh_mode(enable: bool = True) -> None:
     """
     Enables or disables manual refresh mode.
 
@@ -1017,12 +1017,12 @@ def _main():
     reprint()
     print('This text was printed normally!')
     wait_for_enter('switch to manual refresh')
-    use_manual_refresh(True)
+    manual_refresh_mode(True)
     print('This was printed, but you won\'t know until 1 second later!!!')
     print('(spooky)')
     time.sleep(1)
     wait_for_enter('switch back to auto refresh')
-    use_manual_refresh(False)
+    manual_refresh_mode(False)
     print()
     name: str = text_input('What is your name?')
     print(f'Hello, {name}!')

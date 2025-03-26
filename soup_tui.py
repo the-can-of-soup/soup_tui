@@ -406,11 +406,11 @@ def manual_refresh_mode(enable: bool = True) -> None:
         if not _screen_up_to_date:
             refresh()
 
-def is_manual_refreshing_enabled() -> bool:
+def is_manual_refresh_mode_enabled() -> bool:
     """
-    Checks whether manual refresh is enabled.
+    Checks whether manual refresh mode is enabled.
 
-    :return: True if manual refresh is enabled.
+    :return: True if manual refresh mode is enabled.
     :rtype: bool
     """
     global _manual_refresh_mode

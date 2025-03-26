@@ -26,6 +26,7 @@ _BLOCK_CHARACTERS: list[str] = [' ', '░', '▒', '▓', '█']
 if platform.python_implementation() == 'PyPy': # normal block characters break in PyPy for some reason
     _BLOCK_CHARACTERS = [' ', '.', '-', '=', '#']
 _PROGRESS_BAR_LENGTH: int = 50
+_MAX_PRINTED_TEXT_SIZE: int = 360000 # max allowed size (number of characters) for the "_printed_text" cache
 
 _printed_text: str = ''
 _title: str = 'Untitled'
@@ -35,6 +36,14 @@ _print: Callable = print
 _input: Callable = input
 
 # DEFINITIONS
+
+def _update_printed_text() -> None:
+    global _printed_text
+
+    _printed_text = _printed_text.split(ANSI.CLEAR_SCREEN)[-1]
+    if (size := len(_printed_text)) > _MAX_PRINTED_TEXT_SIZE:
+        _printed_text = ''
+        raise MemoryError(f'Max printed text size exceeded ({size}/{_MAX_PRINTED_TEXT_SIZE} characters).')
 
 class ANSI:
     """
@@ -300,19 +309,24 @@ def clear_screen() -> None:
 
     _printed_text = ''
 
-def print_raw(text: str = '') -> None:
+def print_raw(text: str = '', fragile: bool = False) -> None:
     """
     Wrapped version of the print builtin. Does not end with a newline by default.
 
     :param text: The text to be printed.
     :type text: str
+    :param fragile: If enabled, this text will disappear the next time the screen refreshes. Should be used for text that is constantly being replaced, like progress bars, but not after they finish.
+    :type fragile: bool
     :rtype: None
     """
     global _printed_text
 
     _print(text, end='')
+    if fragile:
+        return
+
     _printed_text += text
-    _printed_text = _printed_text.split(ANSI.CLEAR_SCREEN)[-1]
+    _update_printed_text()
 
 def input_raw(prompt: str = '') -> str:
     """
@@ -327,12 +341,12 @@ def input_raw(prompt: str = '') -> str:
 
     user_input: str = _input(prompt)
     _printed_text += prompt + user_input + '\n'
-    _printed_text = _printed_text.split(ANSI.CLEAR_SCREEN)[-1]
+    _update_printed_text()
 
     return user_input
 
 # noinspection PyShadowingBuiltins
-def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatting: bool = True) -> None:
+def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatting: bool = True, fragile: bool = False) -> None:
     """
     Wrapped version of the print builtin. Also removes old text formatting on each print by default.
 
@@ -344,12 +358,14 @@ def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatti
     :type format: str
     :param remove_old_formatting: If enabled, old text formatting will be cleared before printing.
     :type remove_old_formatting: bool
+    :param fragile: If enabled, this text will disappear the next time the screen refreshes. Should be used for text that is constantly being replaced, like progress bars, but not after they finish.
+    :type fragile: bool
     :rtype: None
     """
     if remove_old_formatting:
         format = ANSI.RESET + format
 
-    print_raw(format + text + end)
+    print_raw(format + text + end, fragile = fragile)
 
 # noinspection PyShadowingBuiltins
 def input(prompt: str = ' > ', prompt_format: str = '', input_format: str = ANSI.CYAN, remove_old_formatting: bool = True) -> str:
@@ -374,7 +390,7 @@ def input(prompt: str = ' > ', prompt_format: str = '', input_format: str = ANSI
 
     user_input: str = _input(prompt_format + prompt + input_format)
     _printed_text += prompt_format + prompt + input_format + user_input + '\n'
-    _printed_text = _printed_text.split(ANSI.CLEAR_SCREEN)[-1]
+    _update_printed_text()
 
     return user_input
 
@@ -424,6 +440,8 @@ def reprint(text: str | None = None) -> None:
     :type text: str | None
     :rtype: None
     """
+    global _printed_text
+
     if text is None:
         text = _printed_text
 
@@ -437,6 +455,8 @@ def get_displayed_text() -> str:
     :return: The text displayed in the terminal.
     :rtype: str
     """
+    global  _printed_text
+
     return _printed_text
 
 def get_title() -> str:
@@ -446,6 +466,8 @@ def get_title() -> str:
     :return: The default title.
     :rtype: str
     """
+    global _title
+
     return _title
 
 def set_title(text: str) -> None:
@@ -518,10 +540,10 @@ def show_progress_bar(text: str, progress: float, finished: bool = False, start_
             eta = f' (ETA {str(math.floor(estimated_remaining / 3600)).zfill(2)}:{str(math.floor(estimated_remaining / 60) % 60).zfill(2)}:{str(math.floor(estimated_remaining) % 60).zfill(2)})'
 
     # print to terminal
-    end: str = '\r'
+    fragile: bool = True
     if finished:
-        end = '\n'
-    print(f'{text} [{ANSI.GREEN}{progress_bar}{ANSI.RESET}] {ANSI.GREEN}{math.floor(progress * 100000) / 1000:.3f}%{eta}' + ANSI.CLEAR_TEXT_AFTER_CURSOR, end=end)
+        fragile = False
+    print(f'{text} [{ANSI.GREEN}{progress_bar}{ANSI.RESET}] {ANSI.GREEN}{math.floor(progress * 100000) / 1000:.3f}%{eta}' + ANSI.CLEAR_TEXT_AFTER_CURSOR, end = ('\r' if fragile else '\n'), fragile = fragile)
 
 class ProgressBar:
     """
@@ -660,6 +682,8 @@ def text_input(prompt: str | None = None, end: str = '\n', min_length: int | Non
     :return: The text inputted by the user (or None if the user entered an invalid value).
     :rtype: str | None
     """
+    global _printed_text
+
     printed_text_before_input: str = _printed_text
     while True:
 
@@ -749,6 +773,8 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
     :return: The text inputted by the user (or None if the user entered an invalid value).
     :rtype: str | None
     """
+    global _printed_text
+
     printed_text_before_input: str = _printed_text
     while True:
 
@@ -838,12 +864,14 @@ def get_terminal_size() -> tuple[int, int]:
 
 # ALIASES
 
-press_enter_to_continue: Callable = wait_for_enter
-clear: Callable = clear_screen
-cls: Callable = clear_screen
-praw: Callable = print_raw
+press_enter_to_continue = wait_for_enter
+clear = clear_screen
+cls = clear_screen
+praw = print_raw
 # noinspection SpellCheckingInspection
-iraw: Callable = input_raw
+iraw = input_raw
+refresh = reprint
+update = reprint
 
 # MAIN
 

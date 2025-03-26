@@ -1005,7 +1005,7 @@ update = refresh
 # MAIN
 
 def _main():
-    set_title('Soup TUI')
+    set_title('Soup TUI Test')
     print_title()
     print('This is a test of the Soup TUI module.')
     print()

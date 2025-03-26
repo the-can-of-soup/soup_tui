@@ -33,6 +33,8 @@ _title: str = 'Untitled'
 _debug_mode: bool = False
 _use_fast_clear: bool = True
 _fragile_mode: bool = False
+_manual_refresh_mode: bool = False
+_screen_up_to_date: bool = True
 _print: Callable = print
 _input: Callable = input
 
@@ -45,6 +47,9 @@ def _update_printed_text(new_text: str = '') -> None:
 
     if _fragile_mode:
         _fragile_text += new_text
+        if (size := len(_fragile_text)) > _MAX_PRINTED_TEXT_SIZE:
+            _fragile_text = ''
+            raise MemoryError(f'Max printed (fragile) text size exceeded ({size}/{_MAX_PRINTED_TEXT_SIZE} characters).')
         return
 
     _printed_text += new_text
@@ -310,47 +315,27 @@ def clear_screen() -> None:
     global _printed_text
     global _fragile_text
     global _fragile_mode
+    global _screen_up_to_date
+    global _manual_refresh_mode
 
-    if _use_fast_clear:
-        print_raw(ANSI.CLEAR_SCREEN)
+    if _manual_refresh_mode:
+        _screen_up_to_date = False
     else:
-        if platform.system() == 'Windows':
-            os.system('cls')
+        # Actually clear the screen
+        if _use_fast_clear:
+            print_raw(ANSI.CLEAR_SCREEN)
+            _screen_up_to_date = True
         else:
-            os.system('clear')
+            if platform.system() == 'Windows':
+                os.system('cls')
+            else:
+                os.system('clear')
+            _screen_up_to_date = True
 
+    # Update globals
     _printed_text = ''
     _fragile_text = ''
     _fragile_mode = False
-
-def print_raw(text: str = '') -> None:
-    """
-    Wrapped version of the print builtin. Does not end with a newline by default.
-
-    :param text: The text to be printed.
-    :type text: str
-    :rtype: None
-    """
-    global _printed_text
-
-    _print(text, end='')
-    _update_printed_text(text)
-
-def input_raw(prompt: str = '') -> str:
-    """
-    Wrapped version of the input builtin.
-
-    :param prompt: The prompt to be shown to the user.
-    :type prompt: str
-    :return: The user's input.
-    :rtype: str
-    """
-    global _printed_text
-
-    user_input: str = _input(prompt)
-    _update_printed_text(prompt + user_input + '\n')
-
-    return user_input
 
 def begin_fragile_text() -> None:
     """
@@ -401,6 +386,76 @@ def solidify() -> None:
     _update_printed_text(_fragile_text)
     _fragile_text = ''
 
+def use_manual_refresh(enable: bool = True) -> None:
+    """
+    Enables or disables manual refresh mode.
+
+    With this enabled, calling ``print()`` or any other function that prints to the screen will have no effect until ``refresh()``, ``update()``, or ``reprint()`` is called.
+    The exception to this is input functions like ``input()`` and ``text_input()``, which automatically refresh the screen first if needed.
+
+    When disabling manual refresh mode, the screen is also refreshed automatically if needed.
+
+    :param enable: Whether to enable manual refresh.
+    :type enable: bool
+    :rtype: None
+    """
+    global _manual_refresh_mode
+
+    _manual_refresh_mode = enable
+    if not enable:
+        if not _screen_up_to_date:
+            refresh()
+
+def is_manual_refreshing_enabled() -> bool:
+    """
+    Checks whether manual refresh is enabled.
+
+    :return: True if manual refresh is enabled.
+    :rtype: bool
+    """
+    global _manual_refresh_mode
+
+    return _manual_refresh_mode
+
+def print_raw(text: str = '') -> None:
+    """
+    Wrapped version of the print builtin. Does not end with a newline by default.
+
+    :param text: The text to be printed.
+    :type text: str
+    :rtype: None
+    """
+    global _printed_text
+    global _screen_up_to_date
+
+    if _manual_refresh_mode:
+        if len(text) > 0:
+            _screen_up_to_date = False
+    else:
+        _print(text, end='')
+    _update_printed_text(text)
+
+def input_raw(prompt: str = '') -> str:
+    """
+    Wrapped version of the input builtin.
+
+    :param prompt: The prompt to be shown to the user.
+    :type prompt: str
+    :return: The user's input.
+    :rtype: str
+    """
+    global _printed_text
+    global _screen_up_to_date
+
+    # A refresh is required before inputs if the screen isn't up to date because otherwise there could be a gap left in the text
+    if not _screen_up_to_date:
+        refresh()
+
+    user_input: str = _input(prompt)
+    _update_printed_text(prompt + user_input + '\n')
+
+    return user_input
+
 # noinspection PyShadowingBuiltins
 def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatting: bool = True) -> None:
     """
@@ -437,14 +492,10 @@ def input(prompt: str = ' > ', prompt_format: str = '', input_format: str = ANSI
     :return: The user's input.
     :rtype: str
     """
-    global  _printed_text
-
     if remove_old_formatting:
         prompt_format = ANSI.RESET + prompt_format
 
-    user_input: str = _input(prompt_format + prompt + input_format)
-    _update_printed_text(prompt_format + prompt + input_format + user_input + '\n')
-
+    user_input: str = input_raw(prompt_format + prompt + input_format)
     return user_input
 
 # noinspection PyShadowingBuiltins
@@ -490,7 +541,7 @@ def is_debug_mode() -> bool:
 
 def reprint(text: str | None = None) -> None:
     """
-    Clears all text in the terminal, and then prints the same text again.
+    Clears all text in the terminal, and then prints the same text again (except fragile text).
     Optionally providing a string will print that instead.
 
     :param text: The text to be printed after the screen clear, or None to print the old text again.
@@ -498,22 +549,43 @@ def reprint(text: str | None = None) -> None:
     :rtype: None
     """
     global _printed_text
+    global _manual_refresh_mode
 
     if text is None:
         text = _printed_text
 
+    old_manual_refresh: bool = _manual_refresh_mode
+    _manual_refresh_mode = False
+
     clear_screen()
     print_raw(text)
 
-def get_displayed_text() -> str:
+    _manual_refresh_mode = old_manual_refresh
+
+def refresh() -> None:
+    """
+    Clears all text in the terminal, and then prints the same text again (except fragile text).
+
+    :rtype: None
+    """
+    reprint()
+
+def get_displayed_text(include_fragile: bool = True) -> str:
     """
     Returns all text currently displayed in the terminal.
 
+    If manual screen refresh mode is on, includes text that has been queued but has not been actually printed yet.
+
+    :param include_fragile: Whether to include fragile text in the output.
+    :type include_fragile: bool
     :return: The text displayed in the terminal.
     :rtype: str
     """
-    global  _printed_text
+    global _printed_text
+    global _fragile_text
 
+    if include_fragile:
+        return _printed_text + _fragile_text
     return _printed_text
 
 def get_title() -> str:
@@ -928,8 +1000,7 @@ cls = clear_screen
 praw = print_raw
 # noinspection SpellCheckingInspection
 iraw = input_raw
-refresh = reprint
-update = reprint
+update = refresh
 
 # MAIN
 
@@ -944,6 +1015,15 @@ def _main():
     input('Even this input is fragile!')
     wait_for_enter('reprint')
     reprint()
+    print('This text was printed normally!')
+    wait_for_enter('switch to manual refresh')
+    use_manual_refresh(True)
+    print('This was printed, but you won\'t know until 1 second later!!!')
+    print('(spooky)')
+    time.sleep(1)
+    wait_for_enter('switch back to auto refresh')
+    use_manual_refresh(False)
+    print()
     name: str = text_input('What is your name?')
     print(f'Hello, {name}!')
     print()

@@ -3,12 +3,11 @@ A small module written by Soup for basic text UI and user input.
 """
 
 # TO-DO LIST
-# - add functions that use msvcrt.getch() and msvcrt.getche() (msvcrt is a built-in module but only for Windows)
+# - class for printing text formatted as a table
+# - function to format times (e.g. 124.7 becomes '00:02:04.70')
 # - input types for list of numbers, list of text, and multiline text
 # - maybe input type for file path
 # - maybe input type for datetime
-# - class for printing text formatted as a table
-# - function to format times (e.g. 124.7 becomes '00:02:04.70')
 
 # IMPORTS
 
@@ -29,17 +28,26 @@ _PROGRESS_BAR_LENGTH: int = 50
 _MAX_PRINTED_TEXT_SIZE: int = 360000 # max allowed size (number of characters) for the "_printed_text" cache
 
 _printed_text: str = ''
+_fragile_text: str = ''
 _title: str = 'Untitled'
 _debug_mode: bool = False
 _use_fast_clear: bool = True
+_fragile_mode: bool = False
 _print: Callable = print
 _input: Callable = input
 
 # DEFINITIONS
 
-def _update_printed_text() -> None:
+def _update_printed_text(new_text: str = '') -> None:
     global _printed_text
+    global _fragile_text
+    global _fragile_mode
 
+    if _fragile_mode:
+        _fragile_text += new_text
+        return
+
+    _printed_text += new_text
     _printed_text = _printed_text.split(ANSI.CLEAR_SCREEN)[-1]
     if (size := len(_printed_text)) > _MAX_PRINTED_TEXT_SIZE:
         _printed_text = ''
@@ -289,7 +297,9 @@ def is_fast_clear_enabled() -> bool:
     :return: True if fast clear is enabled.
     :rtype: bool
     """
-    return _debug_mode
+    global _use_fast_clear
+
+    return _use_fast_clear
 
 def clear_screen() -> None:
     """
@@ -298,6 +308,8 @@ def clear_screen() -> None:
     :rtype: None
     """
     global _printed_text
+    global _fragile_text
+    global _fragile_mode
 
     if _use_fast_clear:
         print_raw(ANSI.CLEAR_SCREEN)
@@ -308,25 +320,21 @@ def clear_screen() -> None:
             os.system('clear')
 
     _printed_text = ''
+    _fragile_text = ''
+    _fragile_mode = False
 
-def print_raw(text: str = '', fragile: bool = False) -> None:
+def print_raw(text: str = '') -> None:
     """
     Wrapped version of the print builtin. Does not end with a newline by default.
 
     :param text: The text to be printed.
     :type text: str
-    :param fragile: If enabled, this text will disappear the next time the screen refreshes. Should be used for text that is constantly being replaced, like progress bars, but not after they finish.
-    :type fragile: bool
     :rtype: None
     """
     global _printed_text
 
     _print(text, end='')
-    if fragile:
-        return
-
-    _printed_text += text
-    _update_printed_text()
+    _update_printed_text(text)
 
 def input_raw(prompt: str = '') -> str:
     """
@@ -340,13 +348,58 @@ def input_raw(prompt: str = '') -> str:
     global _printed_text
 
     user_input: str = _input(prompt)
-    _printed_text += prompt + user_input + '\n'
-    _update_printed_text()
+    _update_printed_text(prompt + user_input + '\n')
 
     return user_input
 
+def begin_fragile_text() -> None:
+    """
+    Marks the beginning of a fragile text block, which will be deleted if the screen is refreshed using ``refresh()`` or ``update()``.
+
+    :rtype: None
+    """
+    global _fragile_mode
+
+    _fragile_mode = True
+
+# This function was removed because in the case of printing normal text after the end of a fragile block and calling solidify(), the fragile text is solidified after all normal next (not where it was before).
+# def end_fragile_text() -> None:
+#     """
+#     Marks the ending of a fragile text block, which will be deleted if the screen is refreshed using ``refresh()`` or ``update()``.
+#
+#     :rtype: None
+#     """
+#     global _fragile_mode
+#
+#     _fragile_mode = False
+
+def is_fragile() -> bool:
+    """
+    Checks whether fragile mode is enabled.
+
+    :return: True if fragile mode is enabled.
+    :rtype: bool
+    """
+    global _fragile_mode
+
+    return _fragile_mode
+
+def solidify() -> None:
+    """
+    Converts all fragile text into normal text so that it is permanent.
+
+    :rtype: None
+    """
+    global _printed_text
+    global _fragile_text
+    global _fragile_mode
+
+    _fragile_mode = False
+    _update_printed_text(_fragile_text)
+    _fragile_text = ''
+
 # noinspection PyShadowingBuiltins
-def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatting: bool = True, fragile: bool = False) -> None:
+def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatting: bool = True) -> None:
     """
     Wrapped version of the print builtin. Also removes old text formatting on each print by default.
 
@@ -358,14 +411,12 @@ def print(text: str = '', end: str = '\n', format: str = '', remove_old_formatti
     :type format: str
     :param remove_old_formatting: If enabled, old text formatting will be cleared before printing.
     :type remove_old_formatting: bool
-    :param fragile: If enabled, this text will disappear the next time the screen refreshes. Should be used for text that is constantly being replaced, like progress bars, but not after they finish.
-    :type fragile: bool
     :rtype: None
     """
     if remove_old_formatting:
         format = ANSI.RESET + format
 
-    print_raw(format + text + end, fragile = fragile)
+    print_raw(format + text + end)
 
 # noinspection PyShadowingBuiltins
 def input(prompt: str = ' > ', prompt_format: str = '', input_format: str = ANSI.CYAN, remove_old_formatting: bool = True) -> str:
@@ -389,8 +440,7 @@ def input(prompt: str = ' > ', prompt_format: str = '', input_format: str = ANSI
         prompt_format = ANSI.RESET + prompt_format
 
     user_input: str = _input(prompt_format + prompt + input_format)
-    _printed_text += prompt_format + prompt + input_format + user_input + '\n'
-    _update_printed_text()
+    _update_printed_text(prompt_format + prompt + input_format + user_input + '\n')
 
     return user_input
 
@@ -407,6 +457,8 @@ def print_debug(text: str = '', end: str = '\n', format: str = ANSI.GRAY) -> Non
     :type format: str
     :rtype: None
     """
+    global _debug_mode
+
     if _debug_mode:
         print('[DEBUG] ' + text, end, format)
 
@@ -429,6 +481,8 @@ def is_debug_mode() -> bool:
     :return: True if debug mode is enabled.
     :rtype: bool
     """
+    global _debug_mode
+
     return _debug_mode
 
 def reprint(text: str | None = None) -> None:
@@ -510,7 +564,7 @@ def show_progress_bar(text: str, progress: float, finished: bool = False, start_
     :type text: str
     :param progress: The progress level of the progress bar from 0 to 1.
     :type progress: float
-    :param finished: If True, the progress bar will be printed normally; if False, it will have a carriage return at the end.
+    :param finished: If True, the progress bar will be printed normally; if False, it will have a carriage return at the end and be fragile.
     :type finished: bool
     :param start_time: The unix timestamp that the process started, or None to disable ETA display.
     :type start_time: float | None
@@ -540,10 +594,11 @@ def show_progress_bar(text: str, progress: float, finished: bool = False, start_
             eta = f' (ETA {str(math.floor(estimated_remaining / 3600)).zfill(2)}:{str(math.floor(estimated_remaining / 60) % 60).zfill(2)}:{str(math.floor(estimated_remaining) % 60).zfill(2)})'
 
     # print to terminal
-    fragile: bool = True
+    if not finished:
+        begin_fragile_text()
+    print(f'{text} [{ANSI.GREEN}{progress_bar}{ANSI.RESET}] {ANSI.GREEN}{math.floor(progress * 100000) / 1000:.3f}%{eta}' + ANSI.CLEAR_TEXT_AFTER_CURSOR, end=('\n' if finished else '\r'))
     if finished:
-        fragile = False
-    print(f'{text} [{ANSI.GREEN}{progress_bar}{ANSI.RESET}] {ANSI.GREEN}{math.floor(progress * 100000) / 1000:.3f}%{eta}' + ANSI.CLEAR_TEXT_AFTER_CURSOR, end = ('\r' if fragile else '\n'), fragile = fragile)
+        solidify()
 
 class ProgressBar:
     """
@@ -682,10 +737,8 @@ def text_input(prompt: str | None = None, end: str = '\n', min_length: int | Non
     :return: The text inputted by the user (or None if the user entered an invalid value).
     :rtype: str | None
     """
-    global _printed_text
-
-    printed_text_before_input: str = _printed_text
     while True:
+        begin_fragile_text()
 
         # ask user
         if prompt is not None:
@@ -694,6 +747,7 @@ def text_input(prompt: str | None = None, end: str = '\n', min_length: int | Non
 
         # return fallback if blank
         if user_input == '' and fallback_if_blank is not None:
+            solidify()
             return fallback_if_blank
 
         # validate input
@@ -741,9 +795,10 @@ def text_input(prompt: str | None = None, end: str = '\n', min_length: int | Non
 
         # if loop will continue, handle text resetting
         wait_for_enter()
-        reprint(printed_text_before_input)
+        reprint()
 
     # return
+    solidify()
     if input_is_valid:
         return user_input
     return None
@@ -773,10 +828,8 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
     :return: The text inputted by the user (or None if the user entered an invalid value).
     :rtype: str | None
     """
-    global _printed_text
-
-    printed_text_before_input: str = _printed_text
     while True:
+        begin_fragile_text()
 
         # ask user
         if prompt is not None:
@@ -785,6 +838,7 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
 
         # return fallback if blank
         if user_input == '' and fallback_if_blank is not None:
+            solidify()
             return fallback_if_blank
 
         # validate input
@@ -845,9 +899,10 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
 
         # if loop will continue, handle text resetting
         wait_for_enter()
-        reprint(printed_text_before_input)
+        reprint()
 
     # return
+    solidify()
     if input_is_valid:
         return user_input_number
     return None
@@ -880,9 +935,12 @@ def _main():
     print_title()
     print('This is a test of the Soup TUI module.')
     print()
+    begin_fragile_text()
+    print('This text is fragile.')
+    print('So is this. That means it will disappear when you reprint.')
+    input('Even this input is fragile!')
     wait_for_enter('reprint')
     reprint()
-    print()
     name: str = text_input('What is your name?')
     print(f'Hello, {name}!')
     print()
@@ -895,6 +953,8 @@ def _main():
         progress_bar.show(i)
         time.sleep(random.randint(300,1500) / 1000)
     progress_bar.finish()
+    print()
+    wait_for_enter('reprint once more')
     print()
     press_enter_to_close()
 

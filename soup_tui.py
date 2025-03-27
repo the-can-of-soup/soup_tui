@@ -11,7 +11,7 @@ A small module written by Soup for basic text UI and user input.
 
 # IMPORTS
 
-from typing import Callable
+from typing import Callable, Any
 import platform
 import random
 import shutil
@@ -39,26 +39,6 @@ _print: Callable = print
 _input: Callable = input
 
 # DEFINITIONS
-
-# Private
-
-def _update_printed_text(new_text: str = '') -> None:
-    global _printed_text
-    global _fragile_text
-    global _fragile_mode
-
-    if _fragile_mode:
-        _fragile_text += new_text
-        if (size := len(_fragile_text)) > _MAX_PRINTED_TEXT_SIZE:
-            _fragile_text = ''
-            raise MemoryError(f'Max printed (fragile) text size exceeded ({size}/{_MAX_PRINTED_TEXT_SIZE} characters).')
-        return
-
-    _printed_text += new_text
-    _printed_text = _printed_text.split(ANSI.CLEAR_SCREEN)[-1]
-    if (size := len(_printed_text)) > _MAX_PRINTED_TEXT_SIZE:
-        _printed_text = ''
-        raise MemoryError(f'Max printed text size exceeded ({size}/{_MAX_PRINTED_TEXT_SIZE} characters).')
 
 # Information Getters
 
@@ -479,6 +459,24 @@ def set_title(text: str) -> None:
 
 # Text UI Management
 
+def _update_printed_text(new_text: str = '') -> None:
+    global _printed_text
+    global _fragile_text
+    global _fragile_mode
+
+    if _fragile_mode:
+        _fragile_text += new_text
+        if (size := len(_fragile_text)) > _MAX_PRINTED_TEXT_SIZE:
+            _fragile_text = ''
+            raise MemoryError(f'Max printed (fragile) text size exceeded ({size}/{_MAX_PRINTED_TEXT_SIZE} characters).')
+        return
+
+    _printed_text += new_text
+    _printed_text = _printed_text.split(ANSI.CLEAR_SCREEN)[-1]
+    if (size := len(_printed_text)) > _MAX_PRINTED_TEXT_SIZE:
+        _printed_text = ''
+        raise MemoryError(f'Max printed text size exceeded ({size}/{_MAX_PRINTED_TEXT_SIZE} characters).')
+
 def print_raw(text: str = '') -> None:
     """
     Wrapped version of the print builtin. Does not end with a newline by default.
@@ -820,6 +818,49 @@ def press_enter_to_retry() -> None:
 
 # Special Inputs
 
+def _special_input(validator: Callable[[str], tuple[bool, list[str], Any]], prompt: str | None, end: str, fallback_if_blank: Any, keep_asking_until_valid: bool):
+    while True:
+        begin_fragile_text()
+
+        # ask user
+        if prompt is not None:
+            print(prompt)
+        user_input: str = input()
+
+        # return fallback if blank
+        if user_input == '' and fallback_if_blank is not None:
+            solidify()
+            return fallback_if_blank
+
+        # validate input
+        input_is_valid: bool
+        invalid_reasons: list[str]
+        output: Any
+        input_is_valid, invalid_reasons, output = validator(user_input)
+
+        # tell the user if their input is invalid
+        if not input_is_valid:
+            print('Invalid input:', format=ANSI.RED)
+            for reason in invalid_reasons:
+                print(f'   {reason}', format=ANSI.RED)
+
+        # print the ending
+        print_raw(end)
+
+        # exit the loop conditionally
+        if input_is_valid or not keep_asking_until_valid:
+            break
+
+        # if loop will continue, handle text resetting
+        wait_for_enter()
+        reprint()
+
+    # return
+    solidify()
+    if input_is_valid:
+        return output
+    return None
+
 def text_input(prompt: str | None = None, end: str = '\n', min_length: int | None = None, max_length: int | None = None, character_whitelist: list[str] | None = None, character_blacklist: list[str] | None = None, fallback_if_blank: str | None = None, keep_asking_until_valid: bool = False) -> str | None:
     """
     Prompts the user for a text input.
@@ -843,22 +884,10 @@ def text_input(prompt: str | None = None, end: str = '\n', min_length: int | Non
     :return: The text inputted by the user (or None if the user entered an invalid value).
     :rtype: str | None
     """
-    while True:
-        begin_fragile_text()
-
-        # ask user
-        if prompt is not None:
-            print(prompt)
-        user_input: str = input()
-
-        # return fallback if blank
-        if user_input == '' and fallback_if_blank is not None:
-            solidify()
-            return fallback_if_blank
-
-        # validate input
+    def validator(user_input: str):
         input_is_valid: bool = True
         invalid_reasons: list[str] = []
+
         if min_length is not None:
             if len(user_input) < min_length:
                 input_is_valid = False
@@ -886,28 +915,9 @@ def text_input(prompt: str | None = None, end: str = '\n', min_length: int | Non
                 input_is_valid = False
                 invalid_reasons.append(f'Cannot contain these characters: {"".join(character_blacklist)}')
 
-        # tell the user if their input is invalid
-        if not input_is_valid:
-            print('Invalid input:', format=ANSI.RED)
-            for reason in invalid_reasons:
-                print(f'   {reason}', format=ANSI.RED)
+        return input_is_valid, invalid_reasons, user_input
 
-        # print the ending
-        print_raw(end)
-
-        # exit the loop conditionally
-        if input_is_valid or not keep_asking_until_valid:
-            break
-
-        # if loop will continue, handle text resetting
-        wait_for_enter()
-        reprint()
-
-    # return
-    solidify()
-    if input_is_valid:
-        return user_input
-    return None
+    return _special_input(validator, prompt, end, fallback_if_blank, keep_asking_until_valid)
 
 def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool = False, min_value: float | None = None, max_value: float | None = None, whitelist: list[float] | None = None, blacklist: list[float] | None = None, fallback_if_blank: float | None = None, keep_asking_until_valid: bool = False) -> float | None:
     """
@@ -934,23 +944,11 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
     :return: The text inputted by the user (or None if the user entered an invalid value).
     :rtype: str | None
     """
-    while True:
-        begin_fragile_text()
-
-        # ask user
-        if prompt is not None:
-            print(prompt)
-        user_input: str = input()
-
-        # return fallback if blank
-        if user_input == '' and fallback_if_blank is not None:
-            solidify()
-            return fallback_if_blank
-
-        # validate input
+    def validator(user_input: str):
         input_is_valid: bool = True
         invalid_reasons: list[str] = []
         user_input_number: float = 0
+
         try:
             user_input_number = float(user_input)
         except ValueError:
@@ -990,28 +988,9 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
                     input_is_valid = False
                     invalid_reasons.append(f'Cannot be any of these numbers: {", ".join(str(n) for n in blacklist)}')
 
-        # tell the user if their input is invalid
-        if not input_is_valid:
-            print('Invalid input:', format=ANSI.RED)
-            for reason in invalid_reasons:
-                print(f'   {reason}', format=ANSI.RED)
+        return input_is_valid, invalid_reasons, user_input_number
 
-        # print the ending
-        print_raw(end)
-
-        # exit the loop conditionally
-        if input_is_valid or not keep_asking_until_valid:
-            break
-
-        # if loop will continue, handle text resetting
-        wait_for_enter()
-        reprint()
-
-    # return
-    solidify()
-    if input_is_valid:
-        return user_input_number
-    return None
+    return _special_input(validator, prompt, end, fallback_if_blank, keep_asking_until_valid)
 
 # ALIASES
 

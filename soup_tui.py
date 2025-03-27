@@ -344,6 +344,10 @@ def begin_fragile_text() -> None:
     :rtype: None
     """
     global _fragile_mode
+    global _manual_refresh_mode
+
+    if _manual_refresh_mode:
+        raise ValueError('Attempted to begin fragile text block, but manual refresh mode is on and the two features are mutually exclusive!')
 
     _fragile_mode = True
 
@@ -391,15 +395,20 @@ def manual_refresh_mode(enable: bool = True) -> None:
     Enables or disables manual refresh mode.
 
     With this enabled, calling ``print()`` or any other function that prints to the screen will have no effect until ``refresh()``, ``update()``, or ``reprint()`` is called.
-    **IMPORTANT: Always refresh right before input functions like ``input()`` and ``text_input()`` to prevent malformed output.**
-
+    The exception to this is ``input()`` and ``input_raw()``, which automatically refresh when called.
     When disabling manual refresh mode, the screen is also refreshed automatically if needed.
+
+    Manual refresh mode and fragile text mode are mutually exclusive.
 
     :param enable: Whether to enable manual refresh.
     :type enable: bool
     :rtype: None
     """
     global _manual_refresh_mode
+    global _fragile_mode
+
+    if enable and _fragile_mode:
+        raise ValueError('Attempted to enable manual refresh mode in a fragile text block, but the two features are mutually exclusive!')
 
     _manual_refresh_mode = enable
     if not enable:

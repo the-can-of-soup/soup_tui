@@ -391,7 +391,7 @@ def manual_refresh_mode(enable: bool = True) -> None:
     Enables or disables manual refresh mode.
 
     With this enabled, calling ``print()`` or any other function that prints to the screen will have no effect until ``refresh()``, ``update()``, or ``reprint()`` is called.
-    The exception to this is input functions like ``input()`` and ``text_input()``, which automatically refresh the screen first if needed.
+    **IMPORTANT: Always refresh right before input functions like ``input()`` and ``text_input()`` to prevent malformed output.**
 
     When disabling manual refresh mode, the screen is also refreshed automatically if needed.
 

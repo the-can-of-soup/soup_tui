@@ -281,7 +281,7 @@ def get_terminal_size() -> tuple[int, int]:
 
 def format_number(n: int | float | complex, leading_zeroes: int = 1, decimal_places: int | None = None, separate_thousands: bool = True, percentage: bool = False, leave_slot_for_neg_sign: bool = False) -> str:
     """
-    Formats a number into a string.
+    Formats a number.
 
     :param n: The number to be formatted. Supports complex numbers.
     :type n: int | float | complex
@@ -331,7 +331,7 @@ def format_number(n: int | float | complex, leading_zeroes: int = 1, decimal_pla
     decimal_part_number: int = 0
     decimal_part: str = ''
     if decimal_places is None:
-        if isinstance(n, int):
+        if n % 1 == 0:
             decimal_places = 0
         else:
             decimal_places = len(str(n).split('.')[1])
@@ -348,6 +348,71 @@ def format_number(n: int | float | complex, leading_zeroes: int = 1, decimal_pla
     if percentage:
         formatted_number += '%'
     return formatted_number
+
+def format_time(s: float, decimal_places: int | None = 3, min_units: int = 3, shorten_largest_unit: bool = False) -> str:
+    """
+    Formats a time in seconds.
+
+    :param s: The time in seconds.
+    :type s: float
+    :param decimal_places: The number of decimal places to show after the seconds.
+    :type decimal_places: int | None
+    :param min_units: The minimum number of units to display (e.g. 2 units is MM:SS, 3 is HH:MM:SS, etc.)
+    :type min_units: int
+    :param shorten_largest_unit: If enabled, the largest unit will not have leading zeroes added.
+    :type shorten_largest_unit: bool
+    :return: The formatted time.
+    :rtype: str
+    """
+    # Constants
+    unit_ratios: list[float] = [1, 60, 3600, 24 * 3600]
+    num_units: int = len(unit_ratios)
+
+    # Validation
+    if min_units > num_units:
+        raise ValueError(f'There are only {num_units} units; tried to show {min_units}!')
+    if min_units < 1:
+        raise ValueError('There must be at least 1 unit!')
+
+    # Get each unit's value
+    unit_values: list[int | float] = []
+    for unit in range(num_units):
+        # Get unit ratio
+        ratio: float = unit_ratios[unit]
+        next_ratio: float | None
+        if unit < num_units - 1:
+            next_ratio = unit_ratios[unit + 1]
+        else:
+            next_ratio = None
+
+        # Stop adding units if all next units would show 0, and minimum requirement met
+        if s < ratio and unit >= min_units:
+            break
+
+        # Get unit value
+        unit_value: int | float
+        if unit == 0:
+            unit_value = s % next_ratio
+        elif unit == num_units - 1:
+            unit_value = s // ratio
+        else:
+            unit_value = (s // ratio) % (next_ratio // ratio)
+        unit_values.append(unit_value)
+    actual_num_units: int = len(unit_values)
+
+    # Format each unit
+    formatted_units: list[str] = []
+    for unit in range(actual_num_units):
+        unit_value: int | float = unit_values[unit]
+        formatted_units.append(
+            format_number(unit_value,
+                          leading_zeroes=(1 if unit == actual_num_units - 1 and shorten_largest_unit else 2),
+                          decimal_places=(decimal_places if unit == 0 else 0))
+        )
+    formatted_units.reverse()
+
+    # Return
+    return ':'.join(formatted_units)
 
 # Settings
 

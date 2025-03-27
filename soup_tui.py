@@ -40,6 +40,8 @@ _input: Callable = input
 
 # DEFINITIONS
 
+# Private
+
 def _update_printed_text(new_text: str = '') -> None:
     global _printed_text
     global _fragile_text
@@ -57,6 +59,8 @@ def _update_printed_text(new_text: str = '') -> None:
     if (size := len(_printed_text)) > _MAX_PRINTED_TEXT_SIZE:
         _printed_text = ''
         raise MemoryError(f'Max printed text size exceeded ({size}/{_MAX_PRINTED_TEXT_SIZE} characters).')
+
+# Information Getters
 
 class ANSI:
     """
@@ -210,6 +214,91 @@ class ANSI:
     CUP: Callable = place_cursor
     CHA: Callable = move_cursor_to_column
 
+def is_fast_clear_enabled() -> bool:
+    """
+    Checks whether fast clear is enabled.
+
+    :return: True if fast clear is enabled.
+    :rtype: bool
+    """
+    global _use_fast_clear
+
+    return _use_fast_clear
+
+def is_fragile() -> bool:
+    """
+    Checks whether fragile mode is enabled.
+
+    :return: True if fragile mode is enabled.
+    :rtype: bool
+    """
+    global _fragile_mode
+
+    return _fragile_mode
+
+def is_manual_refresh_mode_enabled() -> bool:
+    """
+    Checks whether manual refresh mode is enabled.
+
+    :return: True if manual refresh mode is enabled.
+    :rtype: bool
+    """
+    global _manual_refresh_mode
+
+    return _manual_refresh_mode
+
+def is_debug_mode() -> bool:
+    """
+    Checks whether debug mode is enabled.
+
+    :return: True if debug mode is enabled.
+    :rtype: bool
+    """
+    global _debug_mode
+
+    return _debug_mode
+
+def get_displayed_text(include_fragile: bool = True) -> str:
+    """
+    Returns all text currently displayed in the terminal.
+
+    If manual screen refresh mode is on, includes text that has been queued but has not been actually printed yet.
+
+    :param include_fragile: Whether to include fragile text in the output.
+    :type include_fragile: bool
+    :return: The text displayed in the terminal.
+    :rtype: str
+    """
+    global _printed_text
+    global _fragile_text
+
+    if include_fragile:
+        return _printed_text + _fragile_text
+    return _printed_text
+
+def get_title() -> str:
+    """
+    Returns the current default title set by ``set_title()``.
+
+    :return: The default title.
+    :rtype: str
+    """
+    global _title
+
+    return _title
+
+def get_terminal_size() -> tuple[int, int]:
+    """
+    Returns the current size of the terminal in characters.
+
+    :return: The size of the terminal in characters; a tuple of width and height.
+    :rtype: tuple[int, int]
+    """
+    # noinspection PyTypeChecker
+    return tuple(shutil.get_terminal_size())
+
+# Formatting
+
 def format_number(n: int | float | complex, leading_zeroes: int = 1, decimal_places: int | None = None, separate_thousands: bool = True, percentage: bool = False, leave_slot_for_neg_sign: bool = False) -> str:
     """
     Formats a number into a string.
@@ -280,6 +369,8 @@ def format_number(n: int | float | complex, leading_zeroes: int = 1, decimal_pla
         formatted_number += '%'
     return formatted_number
 
+# Settings
+
 def use_fast_clear(enable: bool = True) -> None:
     """
     Enables or disables fast clear for clearing the screen.
@@ -294,48 +385,6 @@ def use_fast_clear(enable: bool = True) -> None:
     global _use_fast_clear
 
     _use_fast_clear = enable
-
-def is_fast_clear_enabled() -> bool:
-    """
-    Checks whether fast clear is enabled.
-
-    :return: True if fast clear is enabled.
-    :rtype: bool
-    """
-    global _use_fast_clear
-
-    return _use_fast_clear
-
-def clear_screen() -> None:
-    """
-    Clears all text in the terminal by running the appropriate system command.
-
-    :rtype: None
-    """
-    global _printed_text
-    global _fragile_text
-    global _fragile_mode
-    global _screen_up_to_date
-    global _manual_refresh_mode
-
-    if _manual_refresh_mode:
-        _screen_up_to_date = False
-    else:
-        # Actually clear the screen
-        if _use_fast_clear:
-            print_raw(ANSI.CLEAR_SCREEN)
-            _screen_up_to_date = True
-        else:
-            if platform.system() == 'Windows':
-                os.system('cls')
-            else:
-                os.system('clear')
-            _screen_up_to_date = True
-
-    # Update globals
-    _printed_text = ''
-    _fragile_text = ''
-    _fragile_mode = False
 
 def begin_fragile_text() -> None:
     """
@@ -364,17 +413,6 @@ def begin_fragile_text() -> None:
 #     global _fragile_mode
 #
 #     _fragile_mode = False
-
-def is_fragile() -> bool:
-    """
-    Checks whether fragile mode is enabled.
-
-    :return: True if fragile mode is enabled.
-    :rtype: bool
-    """
-    global _fragile_mode
-
-    return _fragile_mode
 
 def solidify() -> None:
     """
@@ -415,16 +453,31 @@ def manual_refresh_mode(enable: bool = True) -> None:
         if not _screen_up_to_date:
             refresh()
 
-def is_manual_refresh_mode_enabled() -> bool:
+def debug_mode(enable_debug_mode: bool = True) -> None:
     """
-    Checks whether manual refresh mode is enabled.
+    Enables or disables debug mode for ``print_debug()``.
 
-    :return: True if manual refresh mode is enabled.
-    :rtype: bool
+    :param enable_debug_mode: Whether to enable debug mode.
+    :type enable_debug_mode: bool
+    :rtype: None
     """
-    global _manual_refresh_mode
+    global _debug_mode
 
-    return _manual_refresh_mode
+    _debug_mode = enable_debug_mode
+
+def set_title(text: str) -> None:
+    """
+    Sets the default title for ``print_title()``.
+
+    :param text: The text to become the default title.
+    :type text: str
+    :rtype: None
+    """
+    global _title
+
+    _title = text
+
+# Text UI Management
 
 def print_raw(text: str = '') -> None:
     """
@@ -525,28 +578,36 @@ def print_debug(text: str = '', end: str = '\n', format: str = ANSI.GRAY) -> Non
     if _debug_mode:
         print('[DEBUG] ' + text, end, format)
 
-def debug_mode(enable_debug_mode: bool = True) -> None:
+def clear_screen() -> None:
     """
-    Enables or disables debug mode for ``print_debug()``.
+    Clears all text in the terminal by running the appropriate system command.
 
-    :param enable_debug_mode: Whether to enable debug mode.
-    :type enable_debug_mode: bool
     :rtype: None
     """
-    global _debug_mode
+    global _printed_text
+    global _fragile_text
+    global _fragile_mode
+    global _screen_up_to_date
+    global _manual_refresh_mode
 
-    _debug_mode = enable_debug_mode
+    if _manual_refresh_mode:
+        _screen_up_to_date = False
+    else:
+        # Actually clear the screen
+        if _use_fast_clear:
+            print_raw(ANSI.CLEAR_SCREEN)
+            _screen_up_to_date = True
+        else:
+            if platform.system() == 'Windows':
+                os.system('cls')
+            else:
+                os.system('clear')
+            _screen_up_to_date = True
 
-def is_debug_mode() -> bool:
-    """
-    Checks whether debug mode is enabled.
-
-    :return: True if debug mode is enabled.
-    :rtype: bool
-    """
-    global _debug_mode
-
-    return _debug_mode
+    # Update globals
+    _printed_text = ''
+    _fragile_text = ''
+    _fragile_mode = False
 
 def reprint(text: str | None = None) -> None:
     """
@@ -578,47 +639,6 @@ def refresh() -> None:
     :rtype: None
     """
     reprint()
-
-def get_displayed_text(include_fragile: bool = True) -> str:
-    """
-    Returns all text currently displayed in the terminal.
-
-    If manual screen refresh mode is on, includes text that has been queued but has not been actually printed yet.
-
-    :param include_fragile: Whether to include fragile text in the output.
-    :type include_fragile: bool
-    :return: The text displayed in the terminal.
-    :rtype: str
-    """
-    global _printed_text
-    global _fragile_text
-
-    if include_fragile:
-        return _printed_text + _fragile_text
-    return _printed_text
-
-def get_title() -> str:
-    """
-    Returns the current default title set by ``set_title()``.
-
-    :return: The default title.
-    :rtype: str
-    """
-    global _title
-
-    return _title
-
-def set_title(text: str) -> None:
-    """
-    Sets the default title for ``print_title()``.
-
-    :param text: The text to become the default title.
-    :type text: str
-    :rtype: None
-    """
-    global _title
-
-    _title = text
 
 def print_title(text: str | None = None, clear_screen_first: bool = True) -> None:
     """
@@ -797,6 +817,8 @@ def press_enter_to_retry() -> None:
     :rtype: None
     """
     wait_for_enter('retry')
+
+# Special Inputs
 
 def text_input(prompt: str | None = None, end: str = '\n', min_length: int | None = None, max_length: int | None = None, character_whitelist: list[str] | None = None, character_blacklist: list[str] | None = None, fallback_if_blank: str | None = None, keep_asking_until_valid: bool = False) -> str | None:
     """
@@ -991,25 +1013,17 @@ def number_input(prompt: str | None = None, end: str = '\n', must_be_int: bool =
         return user_input_number
     return None
 
-def get_terminal_size() -> tuple[int, int]:
-    """
-    Returns the current size of the terminal in characters.
-
-    :return: The size of the terminal in characters; a tuple of width and height.
-    :rtype: tuple[int, int]
-    """
-    # noinspection PyTypeChecker
-    return tuple(shutil.get_terminal_size())
-
 # ALIASES
 
 press_enter_to_continue = wait_for_enter
 clear = clear_screen
 cls = clear_screen
+clr = clear_screen
 praw = print_raw
 # noinspection SpellCheckingInspection
 iraw = input_raw
 update = refresh
+dump = get_displayed_text
 
 # MAIN
 

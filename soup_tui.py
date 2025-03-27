@@ -2,9 +2,9 @@
 A small module written by Soup for basic text UI and user input.
 """
 
-# TO-DO LIST
-# - class for printing text formatted as a table
+# TO-DO LIS
 # - function to format times (e.g. 124.7 becomes '00:02:04.70')
+# - class for printing text formatted as a table
 # - input types for list of numbers, list of text, and multiline text
 # - maybe input type for file path
 # - maybe input type for datetime
